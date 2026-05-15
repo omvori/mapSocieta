@@ -1,12 +1,8 @@
 import pandas as pd
-from odf.opendocument import load
-from odf.table import Table, TableRow, TableCell
-from odf.text import P
-import re
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
-F9_SHEET      = "9"
-FCODICI_SHEET = "Sheet1"
-OUTPUT_SHEET  = "18"
+OUTPUT_SHEET  = "008"
 OUTPUT_COL    = "IDS"
 OUTPUT_COL_CONFERENTE = "IDS_CONFERENTE"
 
@@ -26,350 +22,160 @@ def _load_sheet(path: str, sheet: str, engine: str = "calamine") -> pd.DataFrame
         raise KeyError(f"foglio non trovato, disponibili: {available}")
 
 
-def writeOnODS(path: str, sheet_name: str, colonna: str, valori: list):
+def scrivi_colonne_xlsx(path: str, sheet_name: str, colonne_valori: dict):
     '''
-    funzione che scrive sul foglio in formato ODS
-    ricerca la colonna tramite il nome e ne evita il duplicato
-    ritorna il documento salvato
+    Scrive multiple colonne in un file Excel usando openpyxl
+    colonne_valori = {'IDS': [...], 'IDS_CONFERENTE': [...]}
     '''
     
-    doc = load(path)
+    wb = load_workbook(path)
     
-    target_table = None
-    table_index = 0
-    for table in doc.getElementsByType(Table):
-        if table.getAttribute("name") == sheet_name:
-            target_table = table
-            break
-        table_index += 1
+    #Cerca per nome esatto
+    if sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        raise ValueError(f"Foglio '{sheet_name}' non trovato. Disponibili: {wb.sheetnames}")
     
-    if target_table is None:
-        try:
-            idx = int(sheet_name)
-            tables = list(doc.getElementsByType(Table))
-            if 0 <= idx < len(tables):
-                target_table = tables[idx]
-        except ValueError:
-            pass
+    #Leggi gli header esistenti
+    headers = {}
+    max_col = ws.max_column
+    for col in range(1, max_col + 1):
+        cell_value = ws.cell(row=1, column=col).value
+        if cell_value:
+            headers[str(cell_value).strip()] = col
     
-    if target_table is None:
-        raise ValueError(f"foglio {sheet_name} non trovato nel file ODS")
-    
-    rows = list(target_table.getElementsByType(TableRow))
-    if not rows:
-        return
-    
-    header_row = rows[0] #A1/B1
-    header_cells = list(header_row.getElementsByType(TableCell))
-    
-    #ricerca della colonna nel param
-    col_index = None
-    current_col = 0
-    for i, cell in enumerate(header_cells):
-        repeat_cols = cell.getAttribute("numbercolumnsrepeated")
-        if repeat_cols:
-            repeat_cols = int(repeat_cols)
+    #Per ogni colonna da scrivere
+    for col_name, valori in colonne_valori.items():
+        if col_name in headers:
+            col_idx = headers[col_name]
         else:
-            repeat_cols = 1
+            col_idx = max_col + 1
+            ws.cell(row=1, column=col_idx, value=col_name)
+            max_col += 1
         
-        text_content = ""
-        for p in cell.getElementsByType(P):
-            if p.firstChild and hasattr(p.firstChild, 'data'):
-                text_content += p.firstChild.data
-        
-        if text_content.strip() == colonna:
-            col_index = current_col
-            break
-        current_col += repeat_cols
+        for i, val in enumerate(valori):
+            ws.cell(row=i + 2, column=col_idx, value=val if val else None)
     
-    if col_index is None:
-        col_index = current_col
-        new_cell = TableCell()
-        p = P()
-        p.addText(colonna)
-        new_cell.addElement(p)
-        header_row.addElement(new_cell)
-    
-    for row_index in range(1, len(valori) + 1):
-        while len(rows) <= row_index:
-            new_row = TableRow()
-            target_table.addElement(new_row)
-            rows = list(target_table.getElementsByType(TableRow))
-        
-        row = rows[row_index]
-        cells = list(row.getElementsByType(TableCell))
-        
-        actual_col_count = 0
-        for cell in cells:
-            repeat_cols = cell.getAttribute("numbercolumnsrepeated")
-            if repeat_cols:
-                actual_col_count += int(repeat_cols)
-            else:
-                actual_col_count += 1
-        
-        while actual_col_count <= col_index:
-            new_cell = TableCell()
-            row.addElement(new_cell)
-            cells = list(row.getElementsByType(TableCell))
-            actual_col_count += 1
-        
-        target_cell = None
-        current_col = 0
-
-        #fix per colonne ripetute
-        for cell in cells:
-            repeat_cols = cell.getAttribute("numbercolumnsrepeated")
-            if repeat_cols:
-                repeat_cols = int(repeat_cols)
-            else:
-                repeat_cols = 1
-            
-            if current_col <= col_index < current_col + repeat_cols:
-                if repeat_cols > 1 and col_index > current_col:
-                    cell.setAttribute("numbercolumnsrepeated", str(col_index - current_col))
-                    target_cell = TableCell()
-                    parent = cell.parentNode
-                    siblings = list(parent.childNodes)
-                    cell_index = siblings.index(cell)
-                    parent.insertBefore(target_cell, siblings[cell_index + 1] if cell_index + 1 < len(siblings) else None)
-                    
-                    remaining = repeat_cols - (col_index - current_col) - 1
-                    if remaining > 0:
-                        remaining_cell = TableCell()
-                        remaining_cell.setAttribute("numbercolumnsrepeated", str(remaining))
-                        parent.insertBefore(remaining_cell, target_cell.nextSibling)
-                else:
-                    target_cell = cell
-                    if repeat_cols > 1:
-                        cell.removeAttribute("numbercolumnsrepeated")
-                break
-            
-            current_col += repeat_cols
-        
-        if target_cell is None:
-            target_cell = TableCell()
-            row.addElement(target_cell)
-        
-        for child in list(target_cell.childNodes):
-            target_cell.removeChild(child)
-        
-        valore = valori[row_index - 1]
-        if valore:
-            p = P()
-            p.addText(str(valore))
-            target_cell.addElement(p)
-    
-    doc.save(path)
+    wb.save(path)
+    print(f"Scritte {len(colonne_valori)} colonne nel foglio '{ws.title}'")
 
 
-def parsef9(df_f9: pd.DataFrame) -> tuple[dict, dict]:
+def processa_cella_societa(cella: str, societa_to_value: dict, societa_non_trovate: set) -> list:
     '''
-    funzione che copia ogni cella della colonna #ID dal foglio 9
-    return: torna due dizionari che contengono: 
-    nome_to_codici = {società1:0000-00}
-    codici_to_nome = {0000-00:societa1}
-    
-    '''
-    nome_to_codici = {}
-    codice_to_nome = {}
-    #ricerca della colonna id nel f9
-    id_column = None
-    for col in df_f9.columns:
-        if '#ID' in col or 'ID' in col or 'id' in col.lower():
-            id_column = col
-            break
-    
-    if id_column is None:
-        print(f"Colonna #ID non trovata. Colonne disponibili: {list(df_f9.columns)}")
-        return nome_to_codici, codice_to_nome
-    
-    for _, row in df_f9.iterrows():
-        cell_value = str(row.get(id_column, "")) if not pd.isna(row.get(id_column)) else ""
-        if not cell_value:
-            continue
-        #rimozione del trattino nella colonna #ID
-        if '_' in cell_value:
-            parts = cell_value.split('_', 1)
-            codice = parts[0].strip()
-            nome = parts[1].strip()
-            
-            
-            if codice and nome:
-                if nome not in nome_to_codici:
-                    nome_to_codici[nome] = []
-                if codice not in nome_to_codici[nome]:
-                    nome_to_codici[nome].append(codice)
-                codice_to_nome[codice] = nome
-        else: #da rimuovere
-            match = re.match(r'^([0-9\-]+)\s+(.+)$', cell_value)
-            if match:
-                codice = match.group(1).strip()
-                nome = match.group(2).strip()
-                if codice and nome:
-                    if nome not in nome_to_codici:
-                        nome_to_codici[nome] = []
-                    if codice not in nome_to_codici[nome]:
-                        nome_to_codici[nome].append(codice)
-                    codice_to_nome[codice] = nome
-    
-    return nome_to_codici, codice_to_nome 
-
-
-def processa_cella_societa(cella: str, nome_to_codici: dict, codice_nome_to_sipid: dict, 
-                           codice_to_sipid: dict, colonna_nome_convert: str,
-                           societa_non_trovate: set, codici_non_trovati: set) -> list:
-    '''
-    funzione che lavora sulla colonna societa/societa_conferente e processa una singola cella che contiene una o più società separate da |
-    se società = true, cerca nel foglio 9 la corrispondenza col codice
-    restituisce una lista di sip_id trovati
+    Processa una singola cella che contiene una o più società separate da |
+    Formato società: "0800-01_Eni S.p.A. - CORPORATE"
+    Match esatto con la Key del dizionario
     '''
     if not cella:
         return []
     
     societa_list = [s.strip() for s in cella.split("|") if s.strip()]
-    sip_ids = []
+    values = []
     
     for societa in societa_list:
-        codici = nome_to_codici.get(societa, [])
-        if not codici:
-            societa_non_trovate.add(societa)
-            continue
+        value = societa_to_value.get(societa)
         
-        sip_id = None
-        for codice in codici:
-            if colonna_nome_convert:
-                sip_id = codice_nome_to_sipid.get((codice, societa))
-                if sip_id:
-                    break
-            
-            sip_id = codice_to_sipid.get(codice)
-            if sip_id:
-                break
-        
-        if sip_id:
-            sip_ids.append(sip_id)
+        if value:
+            values.append(value)
         else:
-            codici_non_trovati.update(codici)
+            societa_non_trovate.add(societa)
     
-    return sip_ids
+    return values
 
 
 def map_societa(
-    path_f9: str,
-    path_fcodici: str,
-    f9_sheet: str = F9_SHEET,
-    fcodici_sheet: str = FCODICI_SHEET,
+    path_importtemplate: str,
+    path_sip: str,
     output_sheet: str = OUTPUT_SHEET,
     output_col: str = OUTPUT_COL,
     output_col_conferente: str = OUTPUT_COL_CONFERENTE,
     limit: int = None,
 ) -> None:
-    '''
-    3 fogli su cui lavora
-    f9 = foglio con codici e nomi società
-    fcodici = foglio convert con sip_ids
-    output = il foglio dei procuratori
-
-    codice_nome_to_sipid = mappa il nome e il codice per cercare un match dentro il fogli
-    o convert con sipid
-    codice_to_sipid = mappa solo codice e sipid
-    '''
     
-    df_f9 = _load_sheet(path_f9, f9_sheet)
-    df_output = _load_sheet(path_f9, output_sheet)
-    df_fcodici = _load_sheet(path_fcodici, fcodici_sheet)
+    
+    print(f"\nCaricamento ImportTemplate foglio '{output_sheet}'...")
+    df_output = _load_sheet(path_importtemplate, output_sheet)
+    
+    print(f"Caricamento file sip_societa")
+    df_sip = _load_sheet(path_sip, "Sheet1")
     
     if limit is not None:
         df_output = df_output.head(limit)
         print(f"Limite impostato a {limit}")
     
-    df_f9.columns = df_f9.columns.str.strip()
     df_output.columns = df_output.columns.str.strip()
-    df_fcodici.columns = df_fcodici.columns.str.strip()
+    df_sip.columns = df_sip.columns.str.strip()
     
-    colonna_nome_convert = input("\nColonna dei nomi nel file convert :").strip()
-    
-    nome_to_codici, codice_to_nome = parsef9(df_f9)
-    
-    duplicati = {nome: codici for nome, codici in nome_to_codici.items() if len(codici) > 1}
-    if duplicati:
-        print(f"trovati {len(duplicati)} nomi con codici multipli nel foglio 9")
-    
-    codice_nome_to_sipid = {}
-    codice_to_sipid = {}
-    
-    for _, row in df_fcodici.iterrows():
-        codice = str(row.get("cr082_codice", "")).strip()
-        sip_id = str(row.get("cr082_sip_societaid", "")).strip()
+    societa_to_value = {}
+    for _, row in df_sip.iterrows():
+        key = str(row.get("Key", "")).strip()
+        value = str(row.get("Value", "")).strip()
         
-        if codice and sip_id:
-            if colonna_nome_convert and colonna_nome_convert in df_fcodici.columns:
-                nome_convert = str(row.get(colonna_nome_convert, "")).strip()
-                if nome_convert:
-                    codice_nome_to_sipid[(codice, nome_convert)] = sip_id
-            
-            if codice not in codice_to_sipid:
-                codice_to_sipid[codice] = sip_id
+        if key and value:
+            societa_to_value[key] = value
+    
+    print(f"Trovate {len(societa_to_value)} corrispondenze Key to Value")
     
     ids_values = []
     ids_conferente_values = []
     societa_non_trovate = set()
-    codici_non_trovati = set()
     
     for idx, row in df_output.iterrows():
-        
         societa_cell = str(row.get("societa", "")) if not pd.isna(row.get("societa")) else ""
         societa_conferente_cell = str(row.get("societa_conferente", "")) if not pd.isna(row.get("societa_conferente")) else ""
         
-        sip_ids_societa = processa_cella_societa(societa_cell, nome_to_codici, codice_nome_to_sipid, 
-                                                  codice_to_sipid, colonna_nome_convert, 
-                                                  societa_non_trovate, codici_non_trovati)
+        values_societa = processa_cella_societa(societa_cell, societa_to_value, societa_non_trovate)
+        values_conferente = processa_cella_societa(societa_conferente_cell, societa_to_value, societa_non_trovate)
         
-        sip_ids_conferente = processa_cella_societa(societa_conferente_cell, nome_to_codici, codice_nome_to_sipid, 
-                                                     codice_to_sipid, colonna_nome_convert, 
-                                                     societa_non_trovate, codici_non_trovati)
-        
-        # Colonna IDS (solo società)
-        if sip_ids_societa:
-            parte1 = "[" + ",".join([f'"{id_val}"' for id_val in sip_ids_societa]) + "]"
+        #popolazione colonna IDS
+        if values_societa:
+            parte1 = "[" + ",".join([f'"{id_val}"' for id_val in values_societa]) + "]"
             ids_values.append(parte1)
         else:
             ids_values.append("")
         
-        # Colonna IDS_CONFERENTE (solo società_conferente)
-        if sip_ids_conferente:
-            parte2 = "[" + ",".join([f'"{id_val}"' for id_val in sip_ids_conferente]) + "]"
+        #popolazione colonna IDS_CONFERENTE
+        if values_conferente:
+            parte2 = "[" + ",".join([f'"{id_val}"' for id_val in values_conferente]) + "]"
             ids_conferente_values.append(parte2)
         else:
             ids_conferente_values.append("")
+
+    if societa_non_trovate:
+        print(f"\nSocietà NON trovate nel file sip ({len(societa_non_trovate)}):")
+        for s in sorted(societa_non_trovate)[:20]:
+            print(f"  - '{s}'")
+        if len(societa_non_trovate) > 20:
+            print(f"e altre {len(societa_non_trovate) - 20}")
     
-    writeOnODS(path_f9, output_sheet, output_col, ids_values)
-    writeOnODS(path_f9, output_sheet, output_col_conferente, ids_conferente_values)
+    print(f"Scrittura colonne nel foglio '{output_sheet}'...")
+    scrivi_colonne_xlsx(path_importtemplate, output_sheet, {
+        output_col: ids_values,
+        output_col_conferente: ids_conferente_values
+    })
     print("Scrittura completata")
 
 
 if __name__ == "__main__":
-    print("Mappa Societa\n")
+    print("tool mapping\n")
     
-    f9      = input("Path ImportTemplate: ").strip().strip('"')
-    fcodici = input("Path convert:        ").strip().strip('"')
+    importtemplate = input("Path ImportTemplate: ").strip().strip('"')
+    sip = input("Path sip_societa: ").strip().strip('"')
 
     limit_raw = input("Limite righe per test (invio = none): ").strip()
     limit = None if not limit_raw else int(limit_raw)
 
-    f9_sheet      = input(f"Foglio 9(invio = {F9_SHEET}):      ").strip() or F9_SHEET
-    fcodici_sheet = input(f"Foglio convert(invio = {FCODICI_SHEET}): ").strip() or FCODICI_SHEET
-    output_sheet  = input(f"Foglio 18(invio = {OUTPUT_SHEET}): ").strip() or OUTPUT_SHEET
-    output_col    = input(f"Colonna(invio = {OUTPUT_COL}):    ").strip() or OUTPUT_COL
-    output_col_conferente = input(f"Colonna conferente(invio = {OUTPUT_COL_CONFERENTE}): ").strip() or OUTPUT_COL_CONFERENTE
+    output_sheet = input(f"Foglio in ImportTemplate (invio = {OUTPUT_SHEET}): ").strip() or OUTPUT_SHEET
+    output_col = input(f"Colonna IDS (invio = {OUTPUT_COL}): ").strip() or OUTPUT_COL
+    output_col_conferente = input(f"Colonna IDS_CONFERENTE (invio = {OUTPUT_COL_CONFERENTE}): ").strip() or OUTPUT_COL_CONFERENTE
     
     map_societa(
-        path_f9=f9,
-        path_fcodici=fcodici,
-        f9_sheet=f9_sheet,
-        fcodici_sheet=fcodici_sheet,
+        path_importtemplate=importtemplate,
+        path_sip=sip,
         output_sheet=output_sheet,
         output_col=output_col,
         output_col_conferente=output_col_conferente,
         limit=limit,
     )
+    
+    print("\nCompletato")
