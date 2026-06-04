@@ -1,7 +1,7 @@
 # mappingXLSX – Tool CLI per mapping su fogli Excel
 
 ## Panoramica
-mappingXLSX è un’utility da riga di comando (CLI) scritta in Python che automatizza il mapping di codici tra due fogli Excel (formati .xlsx, .xls).  
+un’utility da riga di comando (CLI) scritta in Python che automatizza il mapping di codici tra due fogli Excel (formati .xlsx, .xls).  
 Il tool è stato sviluppato come supporto per un progetto interno, dove è necessario arricchire un foglio dati principale con informazioni contenute in un foglio di lookup (tabella di corrispondenza).
 
 ## Come funziona (step logici)
