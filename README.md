@@ -37,8 +37,8 @@ il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
     modificando i valori "Key e Value" si può scegliere quale colonna selezionare dal foglio B
 ```
  for _, row in df_sip.iterrows():
-        key = str(row.get("Key", "")).strip()
-        value = str(row.get("Value", "")).strip()
+        key = str(row.get(`"Key"`, "")).strip()
+        value = str(row.get(`"Value"`, "")).strip()
         if key and value:
             societa_to_value[key] = value
 ```
