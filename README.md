@@ -44,11 +44,11 @@ il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
 ```
 2 - Modifica del nome della colonna del foglio A: 
     modificando i valori "societa e societa_conferente" si può decidere quale colonna prendere dal foglio A 
-    ```
+```
  for idx, row in df_output.iterrows():
     societa_cell = str(row.get("societa", "")) if not pd.isna(row.get("societa")) else ""
     societa_conferente_cell = str(row.get("societa_conferente", "")) if not pd.isna(row.get("societa_conferente")) else ""
-    ```
+```
     
 la stessa logica si applica alle motivazioni :
 
