@@ -35,6 +35,7 @@ il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
 
 1 - Modifica del nome delle colonne del foglio B di lookup :
     modificando i valori "Key e Value" si può scegliere quale colonna selezionare dal foglio B
+    
 <img width="477" height="132" alt="image" src="https://github.com/user-attachments/assets/016ffb14-6d43-49f7-9172-eca67d0f0f2f" />
 
 2 - Modifica del nome della colonna del foglio A: 
