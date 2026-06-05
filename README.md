@@ -13,7 +13,7 @@ Il tool è stato sviluppato come supporto per un progetto interno, dove è neces
 - Il nome della colonna chiave da utilizzare per la corrispondenza (presente in entrambi i fogli).
 
 ### Caricamento
-i fogli vengono caricati tramite _load_sheet() che utilizz calamine per la lettura dei dati con performance ottimali 
+i fogli vengono caricati tramite `_load_sheet()` che utilizz calamine per la lettura dei dati con performance ottimali 
 
 ### Estrazione  
 Il tool legge dal foglio A la colonna chiave e memorizza i relativi valori. Tramite la funzione 
@@ -22,7 +22,7 @@ Il tool legge dal foglio A la colonna chiave e memorizza i relativi valori. Tram
 Legge dal foglio B la stessa colonna chiave (dove sono contenuti i nomi) e i loro codici associati
 
 ### Matching 
-Per ogni riga del foglio A, cerca una corrispondenza esatta con i valori della colonna chiave nel foglio B. Le parole vengono trasformate in minuscolo e strippate dei loro spazi cosi da permettere il corretto matching senza errori 
+Per ogni riga del foglio A, cerca una corrispondenza esatta con i valori della colonna chiave nel foglio B. Le parole vengono `trasformate` in minuscolo e `strippate` dei loro spazi cosi da permettere il corretto matching senza errori 
 
 ### Output 
 Quando trova una corrispondenza, aggiunge due nuove colonne nel foglio A con il nome specificato nell'input, altrimenti le aggiungerà alla costante specificata di default.
