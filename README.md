@@ -30,9 +30,9 @@ Queste colonne verranno popolate con i record dei valori associati ad ogni corri
 
 Il risultato viene salvato sovrascrivendo solamente il foglio specificato, lasciando inalterato il resto dei fogli presenti.
 
-### Adattabilità 
+## Adattabilità 
 
-## il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
+### il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
 
 1 - Modifica del nome delle colonne del foglio B di lookup :
     modificando i valori "Key e Value" si può scegliere quale colonna selezionare dal foglio B
