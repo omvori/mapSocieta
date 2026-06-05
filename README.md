@@ -35,37 +35,19 @@ il tool è semplicemente modificabile ed adattabile alle proprie esigenze:
 
 1 - Modifica del nome delle colonne del foglio B di lookup :
     modificando i valori "Key e Value" si può scegliere quale colonna selezionare dal foglio B
-```
- for _, row in df_sip.iterrows():
-        key = str(row.get(`"Key"`, "")).strip()
-        value = str(row.get(`"Value"`, "")).strip()
-        if key and value:
-            societa_to_value[key] = value
-```
+<img width="477" height="132" alt="image" src="https://github.com/user-attachments/assets/016ffb14-6d43-49f7-9172-eca67d0f0f2f" />
+
 2 - Modifica del nome della colonna del foglio A: 
     modificando i valori "societa e societa_conferente" si può decidere quale colonna prendere dal foglio A 
-```
- for idx, row in df_output.iterrows():
-    societa_cell = str(row.get("societa", "")) if not pd.isna(row.get("societa")) else ""
-    societa_conferente_cell = str(row.get("societa_conferente", "")) if not pd.isna(row.get("societa_conferente")) else ""
-```
-    
+<img width="1248" height="97" alt="image" src="https://github.com/user-attachments/assets/26d55e6e-3b26-4b66-9597-008823e311b9" />
+
+
 la stessa logica si applica alle motivazioni :
 
 1 - Modifica del nome delle colonne del foglio B di lookup:
 n
-```
-for _, row in df_sip.iterrows():
-        key = str(row.get("Key", "")).strip()
-        value = str(row.get("Value", "")).strip()
-        if key and value:
-            motivazione_to_value[key] = value
-            if key.lower() not in motivazione_lower_to_value:
-                motivazione_lower_to_value[key.lower()] = value
-```
-2 - Modifica del nome della colonna del foglio A:
-```
-ids_values = mappa_colonna(df_output.get("motivazioni", pd.Series(dtype=str)))
-    ids_conferente_values = mappa_colonna(df_output.get("motivazioni_annullamento", pd.Series(dtype=str)))
+<img width="597" height="171" alt="image" src="https://github.com/user-attachments/assets/236de0d8-5413-4d3b-916b-ae240f361f37" />
 
-```
+2 - Modifica del nome della colonna del foglio A:
+<img width="1022" height="90" alt="image" src="https://github.com/user-attachments/assets/01fd3e7d-b406-43ac-a79b-1d5b8687d46e" />
+
