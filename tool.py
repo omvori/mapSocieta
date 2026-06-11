@@ -72,29 +72,36 @@ def write_columns(path: str, sheet_name: str, colonne_valori: dict):
     print(f"{len(colonne_valori)}colonne scritte nel foglio: '{ws.title}'")
 
 
-def processa_cella_societa(cella: str, societa_to_value: dict, societa_non_trovate: set) -> list:
-    '''
-    funzione che tira fuori le società dalla colonna (le società devono essere in questo formato [societa1 | societa2 | societa3 ])
-    
-    args :
-        cella : nome della cella
-        societa_to_value: un dizionario con le società
-    return: 
-        ritorna una lista di società popolato se value è true, quindi se la società corrisponde nel nome 
-
-    '''
+def processa_cella_societa(cella: str, societa_to_value: dict, societa_non_trovate: set, 
+                           sostituzioni: dict = None) -> list:
     if not cella:
         return []
     societa_list = [s.strip() for s in cella.split("|") if s.strip()]
     values = []
     for societa in societa_list:
+        if sostituzioni and societa in sostituzioni:
+            societa = sostituzioni[societa]
+        
         value = societa_to_value.get(societa)
+        
+        if not value:
+            societa_lower = societa.lower()
+            # a) match case‑insensitive sull'intera chiave
+            for key, val in societa_to_value.items():
+                if key.lower() == societa_lower:
+                    value = val
+                    break
+            if not value and '_' not in societa:
+                for key, val in societa_to_value.items():
+                    if key.lower().endswith('_' + societa_lower):
+                        value = val
+                        break
+        
         if value:
             values.append(value)
         else:
             societa_non_trovate.add(societa)
     return values
-
 def map_societa(
     path_importtemplate: str,
     path_sip: str,
@@ -120,6 +127,11 @@ def map_societa(
         limit: solo in fase di testing per verificare le righe limitate dal valore che si da a questo parametro
 
     '''
+    eccezioni = {
+    "0585-00_eni rete oil&nonoil S.p.A.": "0585-01_eni rete oil&nonoil",
+    "0916-00":"0916-00_VERSALIS INTERNATIONAL SA",
+    "Varie società":"Varie società"
+    }
     print(f"\nCaricamento ImportTemplate foglio '{output_sheet}'...")
     df_output = _load_sheet(path_importtemplate, output_sheet)
     print("Caricamento file sip_societa")
@@ -148,8 +160,8 @@ def map_societa(
         societa_cell = str(row.get("societa", "")) if not pd.isna(row.get("societa")) else ""
         societa_conferente_cell = str(row.get("societa_conferente", "")) if not pd.isna(row.get("societa_conferente")) else ""
 
-        values_societa = processa_cella_societa(societa_cell, societa_to_value, societa_non_trovate)
-        values_conferente = processa_cella_societa(societa_conferente_cell, societa_to_value, societa_non_trovate)
+        values_societa = processa_cella_societa(societa_cell, societa_to_value, societa_non_trovate,eccezioni)
+        values_conferente = processa_cella_societa(societa_conferente_cell, societa_to_value, societa_non_trovate,eccezioni)
 
         if values_societa:
             ids_values.append("[" + ",".join(f'"{v}"' for v in values_societa) + "]")
@@ -220,7 +232,7 @@ def map_motivazioni(
             if key.lower() not in motivazione_lower_to_value:
                 motivazione_lower_to_value[key.lower()] = value
 
-    print(f"Trovate {len(motivazione_to_value)} corrispondenze di societò")
+    print(f"Trovate {len(motivazione_to_value)} corrispondenze di motivazioni")
 
     def mappa_colonna(serie):
         def mappa_singola_cella(cella):
@@ -285,8 +297,8 @@ if __name__ == "__main__":
 
     if scelta == "1":
         output_sheet = input("Foglio in ImportTemplate (invio = 008): ").strip() or "008"
-        output_col = input("Colonna IDS (invio = IDS): ").strip() or "IDS"
-        output_col_conf = input("Colonna IDS_CONFERENTE (invio = IDS_CONFERENTE): ").strip() or "IDS_CONFERENTE"
+        output_col = input("Colonna di output n.1 (invio = IDS): ").strip() or "IDS"
+        output_col_conf = input("Colonna di output n.2 (invio = IDS_CONFERENTE): ").strip() or "IDS_CONFERENTE"
         map_societa(
             path_importtemplate=importtemplate,
             path_sip=sip,
@@ -297,8 +309,8 @@ if __name__ == "__main__":
         )
     elif scelta == "2":
         output_sheet = input("Foglio in ImportTemplate (invio = 025): ").strip() or "025"
-        output_col = input("Colonna IDS_MOTIVAZIONE (invio = IDS_MOTIVAZIONE): ").strip() or "IDS_MOTIVAZIONE"
-        output_col_conf = input("Colonna IDS_MOTIVAZIONI_ANNULL (invio = IDS_MOTIVAZIONI_ANNULL): ").strip() or "IDS_MOTIVAZIONI_ANNULL"
+        output_col = input("Colonna di output n.1 (invio = IDS_MOTIVAZIONE): ").strip() or "IDS_MOTIVAZIONE"
+        output_col_conf = input("Colonna di output n.2 (invio = IDS_MOTIVAZIONI_ANNULL): ").strip() or "IDS_MOTIVAZIONI_ANNULL"
         map_motivazioni(
             path_importtemplate=importtemplate,
             path_sip=sip,
@@ -308,6 +320,6 @@ if __name__ == "__main__":
             limit=limit,
         )
     else:
-        print("Scelta non valida. Uscita.")
+        print("Scelta non valida")
 
     print("\nCompletato")
